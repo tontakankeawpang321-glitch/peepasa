@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>HTML Translator ฟรี 100%</title>
+<style>
+body{
+    font-family:sans-serif;
+    max-width:900px;
+    margin:auto;
+    padding:40px;
+}
+button{
+    padding:10px 20px;
+    margin-top:10px;
+}
+.progress{
+    margin-top:15px;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>อัปโหลดไฟล์ HTML เพื่อแปล (ฟรี 100%)</h2>
+
+<input type="file" id="fileInput" accept=".html"><br>
+<button onclick="startTranslate()">เริ่มแปล</button>
+
+<div class="progress" id="progress"></div>
+
+<button onclick="downloadFile()">ดาวน์โหลดไฟล์ที่แปลแล้ว</button>
+
+<script>
+let originalHTML = "";
+let translatedHTML = "";
+
+document.getElementById("fileInput").addEventListener("change", function(e){
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(event){
+        originalHTML = event.target.result;
+        alert("โหลดไฟล์สำเร็จ");
+    };
+
+    reader.readAsText(file);
+});
+
+async function translateText(text){
+    const response = await fetch("https://translate.argosopentech.com/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            q: text,
+            source: "en",
+            target: "th",
+            format: "text"
+        })
+    });
+
+    const data = await response.json();
+    return data.translatedText;
+}
+
+async function startTranslate(){
+    if(!originalHTML){
+        alert("กรุณาอัปโหลดไฟล์ก่อน");
+        return;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(originalHTML, "text/html");
+
+    const paragraphs = doc.querySelectorAll("p");
+    let total = paragraphs.length;
+
+    for(let i=0; i<total; i++){
+        const p = paragraphs[i];
+        const text = p.innerText.trim();
+
+        if(text.length > 0){
+            document.getElementById("progress").innerText =
+                `กำลังแปล ${i+1} / ${total}`;
+
+            try{
+                const translated = await translateText(text);
+                p.innerText = translated;
+                await new Promise(r => setTimeout(r, 500)); // กันโดน rate limit
+            }catch(e){
+                console.log("Error:", e);
+            }
+        }
+    }
+
+    translatedHTML = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+    document.getElementById("progress").innerText = "แปลเสร็จแล้ว 🎉";
+}
+
+function downloadFile(){
+    if(!translatedHTML){
+        alert("ยังไม่มีไฟล์ที่แปลแล้ว");
+        return;
+    }
+
+    const blob = new Blob([translatedHTML], {type:"text/html"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "translated.html";
+    a.click();
+}
+</script>
+
+</body>
+</html>
